@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-22T23:57:54.015Z",
+  "generated_at": "2026-02-23T11:13:14.023Z",
   "total_possible": 130,
   "teams": [
     {
@@ -10,12 +10,12 @@
       ],
       "repo": "akaclasses/todo-api-python",
       "deploy_url": "",
-      "total": 5,
+      "total": 0,
       "maxTotal": 130,
       "results": {
         "pipeline_exists": {
           "pass": false,
-          "detail": "Cannot read repo tree",
+          "detail": "0 workflow(s) found",
           "points": 5,
           "label": "Pipeline exists",
           "category": "fundamentals"
@@ -29,21 +29,21 @@
         },
         "lint_pass": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No lint step found in workflows",
           "points": 5,
           "label": "Lint step in pipeline",
           "category": "fundamentals"
         },
         "no_secrets_in_code": {
-          "pass": true,
-          "detail": "No hardcoded secrets detected",
+          "pass": false,
+          "detail": "Secret found in main.py",
           "points": 5,
           "label": "No hardcoded secrets",
           "category": "fundamentals"
         },
         "tests_exist": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No test files found",
           "points": 10,
           "label": "Tests exist in pipeline",
           "category": "fundamentals"
@@ -57,7 +57,7 @@
         },
         "coverage_70": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No coverage step found in CI",
           "points": 10,
           "label": "Coverage ≥ 70%",
           "category": "fundamentals"
@@ -71,28 +71,28 @@
         },
         "docker_builds": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No docker build step in CI",
           "points": 5,
           "label": "Docker build in CI",
           "category": "fundamentals"
         },
         "security_scan": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No security scan found in workflows",
           "points": 10,
           "label": "Security scan in CI",
           "category": "intermediate"
         },
         "ghcr_published": {
           "pass": false,
-          "detail": "No packages found",
+          "detail": "No container packages found",
           "points": 10,
           "label": "Image on GHCR",
           "category": "intermediate"
         },
         "quality_gate": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No quality gate configured",
           "points": 10,
           "label": "Quality gate (SonarCloud etc.)",
           "category": "intermediate"
@@ -113,14 +113,14 @@
         },
         "auto_deploy": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "No auto-deploy workflow found",
           "points": 10,
           "label": "Auto-deploy on push to main",
           "category": "advanced"
         },
         "multi_env": {
           "pass": false,
-          "detail": "Cannot read repo",
+          "detail": "Single environment or none",
           "points": 10,
           "label": "Multiple environments",
           "category": "advanced"
