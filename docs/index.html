@@ -128,9 +128,10 @@
           .map(([k, v]) => `<span class="check ${v.pass ? 'pass' : 'fail'}" title="${v.detail}">${v.pass ? '✅' : '❌'} ${v.label}</span>`)
           .join('');
 
-        // Bonus checks
+        // Bonus checks — only show earned ones
         const bonusChecks = t.bonusResults ? Object.entries(t.bonusResults)
-          .map(([k, v]) => `<span class="check ${v.pass ? 'bonus-pass' : 'bonus-fail'}" title="${v.detail}">${v.pass ? '⭐' : '☆'} ${v.label}</span>`)
+          .filter(([k, v]) => v.pass)
+          .map(([k, v]) => `<span class="check bonus-pass" title="${v.detail}">⭐ ${v.label}</span>`)
           .join('') : '';
 
         // Detail rows
@@ -138,9 +139,10 @@
           .map(([k, v]) => `<div><span class="check ${v.pass ? 'pass' : 'fail'}">${v.pass ? '✅' : '❌'} ${v.label} (${v.pass ? v.points : 0}/${v.points})</span> — ${v.detail}</div>`)
           .join('');
 
-        const bonusDetails = t.bonusResults ? Object.entries(t.bonusResults)
-          .map(([k, v]) => `<div><span class="check ${v.pass ? 'bonus-pass' : 'bonus-fail'}">${v.pass ? '⭐' : '☆'} ${v.label} (${v.pass ? v.points : 0}/${v.points})</span> — ${v.detail}</div>`)
-          .join('') : '';
+        const earnedBonus = t.bonusResults ? Object.entries(t.bonusResults).filter(([k, v]) => v.pass) : [];
+        const bonusDetails = earnedBonus
+          .map(([k, v]) => `<div><span class="check bonus-pass">⭐ ${v.label} (+${v.points})</span> — ${v.detail}</div>`)
+          .join('');
 
         const bonusScore = t.bonus > 0 ? `<span class="score-bonus"> +${t.bonus}</span>` : '';
 

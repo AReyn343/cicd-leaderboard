@@ -3,7 +3,7 @@ name: Update Leaderboard
 on:
   # Every 30 minutes during course hours (Mon-Fri 8h-18h Paris)
   schedule:
-    - cron: '*/30 8-17 * * 1-5'
+    - cron: '*/30 8-23 * * 1-5'
   # Manual trigger
   workflow_dispatch:
 
