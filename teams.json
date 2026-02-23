@@ -1,13 +1,5 @@
 [
     {
-        "deploy_url": "https://todo-api-python-test.onrender.com",
-        "members": [
-            "akasam"
-        ],
-        "repo": "akasam/todo-api-python-test",
-        "team": "Test"
-    },
-    {
         "deploy_url": "https://todoapp.fabienlaurence.com/",
         "members": [
             "Fabien LAURENCE",
