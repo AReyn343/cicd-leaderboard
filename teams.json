@@ -1,0 +1,8 @@
+[
+  {
+    "team": "Exemple",
+    "members": ["etudiant1", "etudiant2"],
+    "repo": "akaclasses/todo-api-python",
+    "deploy_url": ""
+  }
+]
