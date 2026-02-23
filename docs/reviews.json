@@ -1,0 +1,280 @@
+{
+  "generated_at": "2026-02-23T18:32:00+01:00",
+  "teams": [
+    {
+      "team": "Le Jardin",
+      "repo": "FabLrc/todo-api-node",
+      "code_quality": {
+        "score": 3,
+        "details": {
+          "naming": "1/2 — Standard naming, but still uses `var x` in GET /todos",
+          "structure": "1/2 — Good project structure (routes/database separation), Dockerfile, .env.example, CI workflows. But no code-level refactoring.",
+          "error_handling": "0/2 — No try/catch anywhere. No error handling on DB operations.",
+          "dead_code": "0/2 — unusedHelper() and anotherDeadFunction() still in app.js. formatTodo() and formatTodos() still dead in routes/todo.js. eval() search endpoint untouched.",
+          "clean_patterns": "1/2 — Secrets moved to process.env (good), but /debug endpoint still exposes them. eval() still present in search. DB_PASSWORD='admin123' still hardcoded in database.js."
+        }
+      },
+      "documentation": {
+        "score": 4,
+        "details": {
+          "readme": "2/3 — README improved: lists endpoints and data structure. Missing Docker instructions, env vars setup.",
+          "code_comments": "1/3 — Route comments exist (// POST /todos etc). No complex logic explained.",
+          "api_docs": "1/2 — Endpoints listed in README, no Swagger.",
+          "setup_instructions": "0/2 — Just 'npm install && npm start'. No env vars, no Docker instructions despite having Dockerfile."
+        }
+      },
+      "total": 7,
+      "summary": "Good infrastructure additions (Dockerfile, CI, .env.example, tests) but the actual source code is still the sabotaged original. eval() still present, dead code still present, hardcoded DB_PASSWORD still there. README improved but doesn't match the tooling added."
+    },
+    {
+      "team": "Exemple",
+      "repo": "ayoun07/todo-api-node",
+      "code_quality": {
+        "score": 4,
+        "details": {
+          "naming": "1/2 — Decent naming. Still uses `var x` in GET.",
+          "structure": "1/2 — Same original structure, no additional organization.",
+          "error_handling": "1/2 — Added try/catch on POST and search endpoints. Other routes still unprotected.",
+          "dead_code": "0/2 — Large commented-out code blocks left in routes/todo.js (old POST, old search, old toObj). todo.db committed to repo.",
+          "clean_patterns": "1/2 — Fixed eval() to parameterized query (good!). Uses dotenv, DB_PATH from env. But /debug endpoint still exposes all env vars. todo.db in repo."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default README: '# Todo API\\na todo api'",
+          "code_comments": "1/3 — Route comments present, some inline comments on changes.",
+          "api_docs": "0/2 — No API documentation.",
+          "setup_instructions": "0/2 — Only 'npm install && npm start'. No mention of env vars despite requiring DB_PATH."
+        }
+      },
+      "total": 5,
+      "summary": "Fixed the critical eval() vulnerability and moved secrets to env vars — real security improvements. But left large commented-out code blocks, unchanged README, todo.db committed to repo, no CI/CD, no Docker, no tests."
+    },
+    {
+      "team": "sql_injection",
+      "repo": "WookiesRpeople2/todo-api-node",
+      "code_quality": {
+        "score": 7,
+        "details": {
+          "naming": "2/2 — Clean, consistent naming throughout.",
+          "structure": "2/2 — Excellent: esbuild bundler, ESLint config, Jest config, Knip dead code detection, Dockerfile, 3 separate CI workflows (build/lint/test), proper module.exports pattern.",
+          "error_handling": "1/2 — No explicit try/catch in routes, but cleaner patterns overall.",
+          "dead_code": "1/2 — Removed unusedHelper/anotherDeadFunction from app.js. formatTodo/formatTodos kept but actually used. Removed DB_PASSWORD. console.logs remain.",
+          "clean_patterns": "1/2 — Fixed eval(), removed hardcoded secrets. /debug endpoint still exists (exposes env). Good separation of app startup (require.main check)."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default README. Major miss for such well-structured code.",
+          "code_comments": "1/3 — Route comments only.",
+          "api_docs": "0/2 — No API docs despite having the best tooling.",
+          "setup_instructions": "0/2 — No setup instructions. Has Dockerfile but no documentation for it."
+        }
+      },
+      "total": 8,
+      "summary": "Best code quality in the class. Fixed eval(), proper CI pipeline (build/lint/test), esbuild bundling, Knip for dead code, comprehensive tests. But documentation is completely untouched — a major gap. The /debug endpoint and console.logs should be cleaned up too."
+    },
+    {
+      "team": "La team",
+      "repo": "paspigui/todo-api-node",
+      "code_quality": {
+        "score": 1,
+        "details": {
+          "naming": "0/2 — var x, var tmp, generic names unchanged.",
+          "structure": "0/2 — No changes from sabotaged original. No CI, no Docker, no tests.",
+          "error_handling": "0/2 — No error handling whatsoever.",
+          "dead_code": "0/2 — All dead code present: unusedHelper(), anotherDeadFunction(), formatTodo(), formatTodos(). eval() untouched.",
+          "clean_patterns": "1/2 — Only credit: basic project structure exists (routes/database separation from template)."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default README.",
+          "code_comments": "1/3 — Template comments present.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — Bare minimum 'npm install && npm start'."
+        }
+      },
+      "total": 2,
+      "summary": "Completely unchanged from the sabotaged original. Hardcoded secrets (SECRET_KEY, API_KEY directly in source), eval() SQL injection, dead code, hardcoded DB_PASSWORD. No improvements attempted."
+    },
+    {
+      "team": "TeamRedBox",
+      "repo": "LuaPanic/todo-api-node",
+      "code_quality": {
+        "score": 1,
+        "details": {
+          "naming": "0/2 — Unchanged from original.",
+          "structure": "0/2 — No changes. No CI, no Docker, no tests.",
+          "error_handling": "0/2 — None.",
+          "dead_code": "0/2 — All dead code and eval() still present.",
+          "clean_patterns": "1/2 — Template structure credit only."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default.",
+          "code_comments": "1/3 — Template comments.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — Minimal."
+        }
+      },
+      "total": 2,
+      "summary": "Unchanged from sabotaged original despite having a deploy URL. Same hardcoded secrets, eval(), dead code. No CI/CD pipeline visible."
+    },
+    {
+      "team": "HAT",
+      "repo": "lootopia-les-3-dev/todo-api-node",
+      "code_quality": {
+        "score": 1,
+        "details": {
+          "naming": "0/2 — Unchanged.",
+          "structure": "0/2 — No changes from original.",
+          "error_handling": "0/2 — None.",
+          "dead_code": "0/2 — All issues present.",
+          "clean_patterns": "1/2 — Template structure only."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged.",
+          "code_comments": "1/3 — Template comments.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — Minimal."
+        }
+      },
+      "total": 2,
+      "summary": "Unchanged from sabotaged original. No improvements to code, documentation, or CI/CD."
+    },
+    {
+      "team": "hello world",
+      "repo": "un-mec-paumer/todo-api-node",
+      "code_quality": {
+        "score": 2,
+        "details": {
+          "naming": "0/2 — Unchanged source code.",
+          "structure": "1/2 — Added Dockerfile and docker-compose.yml. Source code untouched.",
+          "error_handling": "0/2 — None.",
+          "dead_code": "0/2 — All dead code, eval() present. todo.db committed to repo.",
+          "clean_patterns": "1/2 — Docker added, but hardcoded secrets, eval() and DB_PASSWORD untouched."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default README. No Docker instructions despite adding Docker files.",
+          "code_comments": "1/3 — Template comments.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — Docker files exist but no docs on how to use them."
+        }
+      },
+      "total": 3,
+      "summary": "Added Docker files (Dockerfile + docker-compose) but left all source code as sabotaged original. eval(), hardcoded secrets, dead code all present. todo.db committed. No README updates for Docker usage."
+    },
+    {
+      "team": "West Coast Team",
+      "repo": "keryanchpn/todo-api-node",
+      "code_quality": {
+        "score": 3,
+        "details": {
+          "naming": "1/2 — app.js cleaned up, but routes unchanged with var.",
+          "structure": "1/2 — Added Dockerfile, CI workflow, ESLint, SonarQube, tests. Good infra.",
+          "error_handling": "0/2 — No error handling in routes.",
+          "dead_code": "0/2 — unusedHelper() and anotherDeadFunction() still in app.js. eval() and dead formatTodo/formatTodos still in routes/todo.js (unchanged).",
+          "clean_patterns": "1/2 — Removed /debug endpoint and secrets from app.js (good!). But routes/todo.js is completely unchanged — eval() still there."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default.",
+          "code_comments": "1/3 — Template comments only.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — No instructions."
+        }
+      },
+      "total": 4,
+      "summary": "Removed /debug endpoint and secrets from app.js — good security awareness. Added CI, Docker, ESLint, SonarQube, tests. But routes/todo.js is completely untouched (eval() still there, dead code intact). Dead functions still in app.js. Documentation unchanged."
+    },
+    {
+      "team": "Team-locker",
+      "repo": "Reemark/CI-CD",
+      "code_quality": {
+        "score": 1,
+        "details": {
+          "naming": "0/2 — Unchanged.",
+          "structure": "0/2 — No changes from original.",
+          "error_handling": "0/2 — None.",
+          "dead_code": "0/2 — All issues present.",
+          "clean_patterns": "1/2 — Template structure only."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged despite having deploy URL on Render.",
+          "code_comments": "1/3 — Template comments.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — Minimal."
+        }
+      },
+      "total": 2,
+      "summary": "Unchanged from sabotaged original despite being deployed on Render. Hardcoded secrets are live in production. Critical security risk."
+    },
+    {
+      "team": "Team BJ",
+      "repo": "Christmann-Julian/todo-api-node",
+      "code_quality": {
+        "score": 7,
+        "details": {
+          "naming": "2/2 — const/let throughout, no var. Clean naming.",
+          "structure": "2/2 — Extracted utils.js, Dockerfile, docker-compose (dev + prod), ESLint, Prettier, CI, tests with separate test files (todo + utils). .prettierignore, .dockerignore.",
+          "error_handling": "1/2 — toObj has null checks. Debug endpoint protected by NODE_ENV. No try/catch on routes.",
+          "dead_code": "1/2 — Removed dead functions from app.js. formatTodo/formatTodos kept but used. console.logs remain.",
+          "clean_patterns": "1/2 — Fixed eval(). dotenv for secrets. /debug protected (dev only). DB_PATH from env with fallback."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default README. Huge miss — this repo has the most to document.",
+          "code_comments": "1/3 — Route comments only.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — Has Docker but no docs."
+        }
+      },
+      "total": 8,
+      "summary": "Tied for best code quality. Fixed eval(), protected /debug with NODE_ENV, env vars, utils extraction, const/let, Docker (dev + prod), ESLint + Prettier, good test coverage. But documentation is completely untouched — exactly the same '# Todo API, a todo api' README on a well-structured project."
+    },
+    {
+      "team": "?",
+      "repo": "Anothays/todo-api-node",
+      "code_quality": {
+        "score": 3,
+        "details": {
+          "naming": "1/2 — Still uses var x in routes. Mixed var/const.",
+          "structure": "1/2 — Extracted helpers/utils.js. Has CI (deploy + renovate), ESLint, SonarQube, tests.",
+          "error_handling": "0/2 — No try/catch. No null checks on toObj.",
+          "dead_code": "0/2 — eval() STILL PRESENT in search endpoint! unusedHelper() and anotherDeadFunction() moved to helpers/utils.js and exported (!) instead of deleted. formatTodo/formatTodos in utils but unused in routes.",
+          "clean_patterns": "1/2 — dotenv added, removed dead functions from app.js (but moved to utils). /debug endpoint still fully exposed."
+        }
+      },
+      "documentation": {
+        "score": 1,
+        "details": {
+          "readme": "0/3 — Unchanged default.",
+          "code_comments": "1/3 — Template comments only.",
+          "api_docs": "0/2 — None.",
+          "setup_instructions": "0/2 — No instructions."
+        }
+      },
+      "total": 4,
+      "summary": "Restructured code (helpers/utils extraction, Renovate for deps, ESLint, SonarQube) but missed the critical issues: eval() still present, dead functions moved to utils instead of deleted, /debug still exposed. Good CI infrastructure around unchanged vulnerabilities."
+    }
+  ]
+}
