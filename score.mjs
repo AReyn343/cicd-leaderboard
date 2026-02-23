@@ -75,7 +75,7 @@ async function getWorkflows(owner, repo) {
   const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
   if (!tree?.tree) return { tree: null, workflows: [] };
   const wfPaths = tree.tree
-    .filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"))
+    .filter((f) => f.path.startsWith(".github/workflows/") && (f.path.endsWith(".yml") || f.path.endsWith(".yaml")))
     .map((f) => f.path);
   const workflows = [];
   for (const p of wfPaths) {
@@ -491,9 +491,9 @@ const CHECKS = {
     label: "Dependabot/Renovate configured",
     run: async (owner, repo) => {
       // Anti-cheat: file must have actual config, not be empty
-      const depbot = await ghRaw(owner, repo, ".github/dependabot.yml");
+      const depbot = await ghRaw(owner, repo, ".github/dependabot.yml") || await ghRaw(owner, repo, ".github/dependabot.yaml");
       if (depbot && depbot.includes("package-ecosystem")) {
-        return { pass: true, detail: "dependabot.yml with valid config" };
+        return { pass: true, detail: "dependabot config with valid setup" };
       }
       const renovate = await ghRaw(owner, repo, "renovate.json") || await ghRaw(owner, repo, ".github/renovate.json");
       if (renovate && renovate.includes("extends")) {
