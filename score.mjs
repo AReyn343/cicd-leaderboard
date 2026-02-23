@@ -37,13 +37,52 @@ async function ghRaw(owner, repo, path) {
   return res.text();
 }
 
-async function ghSearch(owner, repo, query) {
-  const res = await fetch(
-    `${API}/search/code?q=${encodeURIComponent(query)}+repo:${owner}/${repo}`,
-    { headers }
-  );
-  if (!res.ok) return null;
-  return res.json();
+// ---------------------------------------------------------------------------
+// Anti-cheat helpers
+// ---------------------------------------------------------------------------
+
+/** Check that a workflow step actually runs a real command, not just echo */
+function stepIsReal(content, keywords) {
+  const lines = content.split("\n");
+  for (const kw of keywords) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].toLowerCase().trim();
+      // Check for "uses:" with known actions
+      if (line.startsWith("uses:") && line.includes(kw)) return { found: true, how: `action: ${kw}` };
+      // Check for "run:" lines that actually invoke the tool (not just echo)
+      if (line.startsWith("run:") || line.startsWith("- ")) {
+        const runContent = line.replace(/^run:\s*\|?\s*/, "").replace(/^-\s*/, "");
+        if (runContent.includes(kw) && !runContent.match(/^\s*echo\b/)) {
+          return { found: true, how: `command: ${kw}` };
+        }
+      }
+      // Multi-line run blocks
+      if (line === "run: |" || line === "run: >") {
+        for (let j = i + 1; j < lines.length && (lines[j].startsWith("  ") || lines[j].startsWith("\t")); j++) {
+          const subline = lines[j].toLowerCase().trim();
+          if (subline.includes(kw) && !subline.match(/^\s*echo\b/)) {
+            return { found: true, how: `command: ${kw}` };
+          }
+        }
+      }
+    }
+  }
+  return { found: false };
+}
+
+/** Get all workflow file contents for a repo */
+async function getWorkflows(owner, repo) {
+  const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
+  if (!tree?.tree) return { tree: null, workflows: [] };
+  const wfPaths = tree.tree
+    .filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"))
+    .map((f) => f.path);
+  const workflows = [];
+  for (const p of wfPaths) {
+    const content = await ghRaw(owner, repo, p);
+    if (content) workflows.push({ path: p, content });
+  }
+  return { tree, workflows };
 }
 
 // ---------------------------------------------------------------------------
@@ -57,11 +96,11 @@ const CHECKS = {
     points: 5,
     category: "fundamentals",
     label: "Pipeline exists",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo tree" };
-      const wf = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      return { pass: wf.length > 0, detail: `${wf.length} workflow(s) found` };
+    run: async (owner, repo, _team, ctx) => {
+      return {
+        pass: ctx.workflows.length > 0,
+        detail: `${ctx.workflows.length} workflow(s) found`,
+      };
     },
   },
 
@@ -84,26 +123,16 @@ const CHECKS = {
     points: 5,
     category: "fundamentals",
     label: "Lint step in pipeline",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        const lower = content.toLowerCase();
-        if (
-          lower.includes("lint") ||
-          lower.includes("ruff") ||
-          lower.includes("flake8") ||
-          lower.includes("pylint") ||
-          lower.includes("eslint") ||
-          lower.includes("prettier")
-        ) {
-          return { pass: true, detail: `Lint found in ${wf.path}` };
+    run: async (owner, repo, _team, ctx) => {
+      // Anti-cheat: must actually run a linter, not just mention the word
+      const realLinters = ["ruff", "flake8", "pylint", "eslint", "prettier", "black"];
+      for (const wf of ctx.workflows) {
+        const result = stepIsReal(wf.content, realLinters);
+        if (result.found) {
+          return { pass: true, detail: `Real linter in ${wf.path} (${result.how})` };
         }
       }
-      return { pass: false, detail: "No lint step found in workflows" };
+      return { pass: false, detail: "No real linter execution found in workflows" };
     },
   },
 
@@ -112,10 +141,14 @@ const CHECKS = {
     category: "fundamentals",
     label: "No hardcoded secrets",
     run: async (owner, repo) => {
-      // Check known files for secret patterns
-      const files = ["main.py", "app.js", "database/database.py", "database/database.js"];
+      const files = [
+        "main.py", "app.js", "app.py",
+        "database/database.py", "database/database.js",
+        "routers/todo.py", "routes/todo.js",
+        "config.py", "config.js", "settings.py",
+      ];
       const patterns = [
-        /(?:SECRET_KEY|API_KEY|DB_PASSWORD|PASSWORD)\s*=\s*["'][^"']{6,}["']/i,
+        /(?:SECRET_KEY|API_KEY|DB_PASSWORD|PASSWORD|TOKEN)\s*=\s*["'][^"']{6,}["']/i,
         /sk-proj-[a-zA-Z0-9]+/,
         /super_secret/i,
         /admin123/,
@@ -137,12 +170,11 @@ const CHECKS = {
     points: 10,
     category: "fundamentals",
     label: "Tests exist in pipeline",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
+    run: async (owner, repo, _team, ctx) => {
+      if (!ctx.tree?.tree) return { pass: false, detail: "Cannot read repo" };
 
-      // Check for test files
-      const testFiles = tree.tree.filter(
+      // Find test files
+      const testFiles = ctx.tree.tree.filter(
         (f) =>
           f.path.match(/test[_s]?.*\.(py|js|ts)$/i) ||
           f.path.match(/.*\.test\.(js|ts)$/i) ||
@@ -152,17 +184,30 @@ const CHECKS = {
 
       if (testFiles.length === 0) return { pass: false, detail: "No test files found" };
 
-      // Also check that tests run in CI
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
+      // Anti-cheat: verify test files actually import the app or have real assertions
+      let realTests = 0;
+      for (const tf of testFiles.slice(0, 5)) {
+        const content = await ghRaw(owner, repo, tf.path);
         if (!content) continue;
         const lower = content.toLowerCase();
-        if (lower.includes("pytest") || lower.includes("jest") || lower.includes("vitest") || lower.includes("npm test") || lower.includes("npm run test")) {
-          return { pass: true, detail: `${testFiles.length} test file(s), tests run in CI` };
+        // Must have actual assertions AND import something from the project
+        const hasAssert = lower.includes("assert") || lower.includes("expect(") || lower.includes("expect (");
+        const hasImport = lower.includes("import") || lower.includes("require(");
+        const hasEndpoint = lower.includes("/todos") || lower.includes("client") || lower.includes("request(");
+        if (hasAssert && (hasImport || hasEndpoint)) realTests++;
+      }
+
+      if (realTests === 0) return { pass: false, detail: `${testFiles.length} test file(s) but no real assertions/imports` };
+
+      // Check tests run in CI
+      const testRunners = ["pytest", "jest", "vitest", "mocha", "npm test", "npm run test"];
+      for (const wf of ctx.workflows) {
+        const result = stepIsReal(wf.content, testRunners);
+        if (result.found) {
+          return { pass: true, detail: `${realTests} real test file(s), run in CI (${result.how})` };
         }
       }
-      return { pass: false, detail: `${testFiles.length} test file(s) but not run in CI` };
+      return { pass: false, detail: `${realTests} real test file(s) but not run in CI` };
     },
   },
 
@@ -171,13 +216,11 @@ const CHECKS = {
     category: "fundamentals",
     label: "Tests pass",
     run: async (owner, repo) => {
-      // If pipeline is green and tests exist in pipeline, tests pass
       const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=1`);
       if (!runs?.workflow_runs?.length) return { pass: false, detail: "No runs" };
       const last = runs.workflow_runs[0];
       if (last.conclusion !== "success") return { pass: false, detail: "Pipeline not green" };
 
-      // Verify tests are in the pipeline
       const jobs = await gh(`/repos/${owner}/${repo}/actions/runs/${last.id}/jobs`);
       if (!jobs?.jobs) return { pass: false, detail: "Cannot read jobs" };
       const testJob = jobs.jobs.find((j) => {
@@ -195,46 +238,27 @@ const CHECKS = {
     points: 10,
     category: "fundamentals",
     label: "Coverage ≥ 70%",
-    run: async (owner, repo) => {
-      // Check for coverage config/reports indicators
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-
-      // Look for coverage in workflow files
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
+    run: async (owner, repo, _team, ctx) => {
+      // Check for real coverage commands in workflows
+      const covCommands = ["--cov", "pytest-cov", "--coverage", "coverage run", "c8", "nyc"];
       let hasCoverage = false;
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        if (content.includes("--cov") || content.includes("coverage") || content.includes("--coverage")) {
-          hasCoverage = true;
-          break;
-        }
+      for (const wf of ctx.workflows) {
+        const result = stepIsReal(wf.content, covCommands);
+        if (result.found) { hasCoverage = true; break; }
       }
 
       if (!hasCoverage) return { pass: false, detail: "No coverage step found in CI" };
 
-      // Check artifacts for coverage report
       const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=1`);
       if (!runs?.workflow_runs?.length) return { pass: false, detail: "No runs" };
-      const artifacts = await gh(`/repos/${owner}/${repo}/actions/runs/${runs.workflow_runs[0].id}/artifacts`);
-      const covArtifact = artifacts?.artifacts?.find((a) =>
-        a.name.toLowerCase().includes("coverage") || a.name.toLowerCase().includes("cov")
-      );
-
-      // We can't easily parse the coverage %, so we check: coverage in CI + pipeline green = trust
       const isGreen = runs.workflow_runs[0].conclusion === "success";
 
       return {
         pass: hasCoverage && isGreen,
-        detail: hasCoverage
-          ? `Coverage in CI, pipeline ${isGreen ? "green ✅" : "red ❌"}${covArtifact ? ", artifact found" : ""}`
-          : "No coverage",
+        detail: `Coverage in CI, pipeline ${isGreen ? "green ✅" : "red ❌"}`,
       };
     },
   },
-
-  // ===== DOCKER (15 pts → part of fundamentals) =====
 
   dockerfile_exists: {
     points: 5,
@@ -242,7 +266,16 @@ const CHECKS = {
     label: "Dockerfile exists",
     run: async (owner, repo) => {
       const content = await ghRaw(owner, repo, "Dockerfile");
-      return { pass: !!content, detail: content ? "Dockerfile found" : "No Dockerfile at root" };
+      if (!content) return { pass: false, detail: "No Dockerfile at root" };
+
+      // Anti-cheat: must have real app instructions, not just FROM+CMD echo
+      const lower = content.toLowerCase();
+      const hasInstall = lower.includes("pip install") || lower.includes("npm") || lower.includes("yarn") || lower.includes("requirements");
+      const hasCopy = lower.includes("copy") || lower.includes("add");
+      if (!hasInstall || !hasCopy) {
+        return { pass: false, detail: "Dockerfile exists but doesn't install dependencies or copy app code" };
+      }
+      return { pass: true, detail: "Valid Dockerfile found" };
     },
   },
 
@@ -250,15 +283,12 @@ const CHECKS = {
     points: 5,
     category: "fundamentals",
     label: "Docker build in CI",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        if (content.includes("docker") && (content.includes("build") || content.includes("build-push"))) {
-          return { pass: true, detail: `Docker build in ${wf.path}` };
+    run: async (owner, repo, _team, ctx) => {
+      const dockerKeywords = ["docker/build-push-action", "docker build", "docker/build"];
+      for (const wf of ctx.workflows) {
+        const result = stepIsReal(wf.content, dockerKeywords);
+        if (result.found) {
+          return { pass: true, detail: `Docker build in ${wf.path} (${result.how})` };
         }
       }
       return { pass: false, detail: "No docker build step in CI" };
@@ -271,21 +301,23 @@ const CHECKS = {
     points: 10,
     category: "intermediate",
     label: "Security scan in CI",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      const keywords = ["trivy", "bandit", "snyk", "codeql", "npm audit", "pip-audit", "safety", "gitleaks", "semgrep", "grype"];
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        const lower = content.toLowerCase();
-        const found = keywords.filter((k) => lower.includes(k));
-        if (found.length > 0) {
-          return { pass: true, detail: `Found: ${found.join(", ")} in ${wf.path}` };
+    run: async (owner, repo, _team, ctx) => {
+      // Anti-cheat: must use real security tools/actions
+      const realTools = [
+        "aquasecurity/trivy-action", "trivy ", "trivy fs", "trivy image",
+        "gitleaks/gitleaks-action", "gitleaks detect",
+        "bandit -r", "bandit ",
+        "pip-audit", "safety check",
+        "npm audit", "snyk test",
+        "github/codeql-action", "semgrep",
+      ];
+      for (const wf of ctx.workflows) {
+        const result = stepIsReal(wf.content, realTools);
+        if (result.found) {
+          return { pass: true, detail: `Security scan: ${result.how} in ${wf.path}` };
         }
       }
-      return { pass: false, detail: "No security scan found in workflows" };
+      return { pass: false, detail: "No real security scan found in workflows" };
     },
   },
 
@@ -294,23 +326,24 @@ const CHECKS = {
     category: "intermediate",
     label: "Image on GHCR",
     run: async (owner, repo) => {
-      // Check GitHub packages
+      // Check GitHub packages API
       const packages = await gh(`/repos/${owner}/${repo}/packages?package_type=container`);
-      if (packages && packages.length > 0) {
-        return { pass: true, detail: `${packages.length} package(s) published` };
+      if (packages && Array.isArray(packages) && packages.length > 0) {
+        return { pass: true, detail: `${packages.length} package(s) on GHCR` };
       }
-      // Also check in workflows for ghcr push
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "No packages found" };
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        if (content.includes("ghcr.io") && content.includes("push")) {
-          return { pass: true, detail: `GHCR push configured in ${wf.path}` };
-        }
+      // Fallback: check org-level packages
+      const orgPackages = await gh(`/orgs/${owner}/packages?package_type=container`);
+      if (orgPackages && Array.isArray(orgPackages)) {
+        const match = orgPackages.find((p) => p.repository?.name === repo);
+        if (match) return { pass: true, detail: `Package "${match.name}" found in org` };
       }
-      return { pass: false, detail: "No container packages found" };
+      // Check user-level packages
+      const userPackages = await gh(`/users/${owner}/packages?package_type=container`);
+      if (userPackages && Array.isArray(userPackages)) {
+        const match = userPackages.find((p) => p.repository?.name === repo);
+        if (match) return { pass: true, detail: `Package "${match.name}" found for user` };
+      }
+      return { pass: false, detail: "No container packages found on GHCR" };
     },
   },
 
@@ -318,29 +351,24 @@ const CHECKS = {
     points: 10,
     category: "intermediate",
     label: "Quality gate (SonarCloud etc.)",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-
-      // Check for sonar config files
-      const sonarFiles = tree.tree.filter((f) =>
-        f.path.includes("sonar-project.properties") || f.path.includes("sonarcloud")
-      );
-
-      // Check workflows
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      const keywords = ["sonar", "codeclimate", "codecov", "quality"];
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        const lower = content.toLowerCase();
-        const found = keywords.filter((k) => lower.includes(k));
-        if (found.length > 0) {
-          return { pass: true, detail: `Found: ${found.join(", ")}` };
+    run: async (owner, repo, _team, ctx) => {
+      // Anti-cheat: must use a real quality tool action or command
+      const realTools = [
+        "sonarcloud-github-action", "SonarSource/sonarcloud",
+        "sonar-scanner", "sonar.projectKey",
+        "codeclimate/action", "paambaati/codeclimate-action",
+        "codecov/codecov-action",
+      ];
+      for (const wf of ctx.workflows) {
+        const result = stepIsReal(wf.content, realTools);
+        if (result.found) {
+          return { pass: true, detail: `Quality gate: ${result.how}` };
+        }
+        // Also check for these in uses: directly (actions are valid even without run:)
+        if (realTools.some((t) => wf.content.toLowerCase().includes(t.toLowerCase()))) {
+          return { pass: true, detail: `Quality tool configured in ${wf.path}` };
         }
       }
-
-      if (sonarFiles.length > 0) return { pass: true, detail: "Sonar config found" };
       return { pass: false, detail: "No quality gate configured" };
     },
   },
@@ -356,7 +384,18 @@ const CHECKS = {
         const timeout = setTimeout(() => controller.abort(), 10000);
         const res = await fetch(team.deploy_url, { signal: controller.signal });
         clearTimeout(timeout);
-        return { pass: res.ok, detail: `${team.deploy_url} → HTTP ${res.status}` };
+        if (!res.ok) return { pass: false, detail: `${team.deploy_url} → HTTP ${res.status}` };
+
+        // Anti-cheat: response must contain our app's signature
+        const body = await res.text();
+        const isOurApp =
+          body.includes("Enhanced") ||
+          body.includes("Todo") ||
+          body.includes("todo");
+        if (!isOurApp) {
+          return { pass: false, detail: `${team.deploy_url} → HTTP 200 but not our Todo API (wrong app?)` };
+        }
+        return { pass: true, detail: `${team.deploy_url} → HTTP ${res.status} ✅ (Todo API verified)` };
       } catch (e) {
         return { pass: false, detail: `${team.deploy_url} → ${e.message}` };
       }
@@ -384,19 +423,22 @@ const CHECKS = {
     points: 10,
     category: "advanced",
     label: "Auto-deploy on push to main",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        const lower = content.toLowerCase();
-        if (
-          (lower.includes("deploy") || lower.includes("render") || lower.includes("fly.io") || lower.includes("railway")) &&
-          (lower.includes("push") && lower.includes("main"))
-        ) {
-          return { pass: true, detail: `Deploy on push to main in ${wf.path}` };
+    run: async (owner, repo, _team, ctx) => {
+      const deployKeywords = [
+        "render.com", "api.render.com", "fly deploy", "flyctl deploy",
+        "railway", "deploy", "ssh", "rsync",
+      ];
+      for (const wf of ctx.workflows) {
+        const lower = wf.content.toLowerCase();
+        // Must trigger on push to main
+        const triggersOnMain = (lower.includes("push") && lower.includes("main")) ||
+          lower.includes("branches: [main]") || lower.includes("branches: [ main ]") ||
+          lower.includes("branches:\n") ;
+        if (!triggersOnMain) continue;
+
+        const result = stepIsReal(wf.content, deployKeywords);
+        if (result.found) {
+          return { pass: true, detail: `Deploy on push to main: ${result.how} in ${wf.path}` };
         }
       }
       return { pass: false, detail: "No auto-deploy workflow found" };
@@ -407,20 +449,16 @@ const CHECKS = {
     points: 10,
     category: "advanced",
     label: "Multiple environments",
-    run: async (owner, repo) => {
-      const tree = await gh(`/repos/${owner}/${repo}/git/trees/main?recursive=1`);
-      if (!tree?.tree) return { pass: false, detail: "Cannot read repo" };
-      const wfFiles = tree.tree.filter((f) => f.path.startsWith(".github/workflows/") && f.path.endsWith(".yml"));
-      for (const wf of wfFiles) {
-        const content = await ghRaw(owner, repo, wf.path);
-        if (!content) continue;
-        const lower = content.toLowerCase();
-        const envs = ["staging", "production", "prod", "dev"].filter((e) => lower.includes(`environment: ${e}`) || lower.includes(`environment:\n`) );
-        if (envs.length >= 2 || (lower.includes("staging") && lower.includes("prod"))) {
-          return { pass: true, detail: `Multiple environments detected` };
+    run: async (owner, repo, _team, ctx) => {
+      for (const wf of ctx.workflows) {
+        const lower = wf.content.toLowerCase();
+        const hasStaging = lower.includes("environment: staging") || lower.includes("environment:\n          name: staging");
+        const hasProd = lower.includes("environment: production") || lower.includes("environment:\n          name: production") || lower.includes("environment: prod");
+        if (hasStaging && hasProd) {
+          return { pass: true, detail: `Staging + production environments in ${wf.path}` };
         }
       }
-      return { pass: false, detail: "Single environment or none" };
+      return { pass: false, detail: "No multiple environments (need both staging + production)" };
     },
   },
 
@@ -431,7 +469,6 @@ const CHECKS = {
     run: async (owner, repo) => {
       const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&status=success&per_page=3`);
       if (!runs?.workflow_runs?.length) return { pass: false, detail: "No successful runs" };
-      // Average duration of last 3 runs
       let totalMs = 0;
       let count = 0;
       for (const run of runs.workflow_runs) {
@@ -453,13 +490,16 @@ const CHECKS = {
     category: "advanced",
     label: "Dependabot/Renovate configured",
     run: async (owner, repo) => {
+      // Anti-cheat: file must have actual config, not be empty
       const depbot = await ghRaw(owner, repo, ".github/dependabot.yml");
-      if (depbot) return { pass: true, detail: "dependabot.yml found" };
-      const renovate = await ghRaw(owner, repo, "renovate.json");
-      if (renovate) return { pass: true, detail: "renovate.json found" };
-      const renovate2 = await ghRaw(owner, repo, ".github/renovate.json");
-      if (renovate2) return { pass: true, detail: ".github/renovate.json found" };
-      return { pass: false, detail: "No dependency update config" };
+      if (depbot && depbot.includes("package-ecosystem")) {
+        return { pass: true, detail: "dependabot.yml with valid config" };
+      }
+      const renovate = await ghRaw(owner, repo, "renovate.json") || await ghRaw(owner, repo, ".github/renovate.json");
+      if (renovate && renovate.includes("extends")) {
+        return { pass: true, detail: "renovate.json with valid config" };
+      }
+      return { pass: false, detail: "No valid dependency update config" };
     },
   },
 };
@@ -472,13 +512,17 @@ async function scoreTeam(team) {
   const [owner, repo] = team.repo.split("/");
   console.log(`\n🔍 Scoring ${team.team} (${team.repo})...`);
 
+  // Pre-fetch workflows (shared across checks)
+  const { tree, workflows } = await getWorkflows(owner, repo);
+  const ctx = { tree, workflows };
+
   const results = {};
   let total = 0;
   let maxTotal = 0;
 
   for (const [key, check] of Object.entries(CHECKS)) {
     try {
-      const result = await check.run(owner, repo, team);
+      const result = await check.run(owner, repo, team, ctx);
       results[key] = { ...result, points: check.points, label: check.label, category: check.category };
       if (result.pass) total += check.points;
       maxTotal += check.points;
@@ -502,10 +546,7 @@ async function main() {
     scores.push(await scoreTeam(team));
   }
 
-  // Sort by total descending
   scores.sort((a, b) => b.total - a.total);
-
-  // Add rank
   scores.forEach((s, i) => (s.rank = i + 1));
 
   const output = {
