@@ -3,6 +3,6 @@
     "team": "Test",
     "members": ["akasam"],
     "repo": "akasam/todo-api-python-test",
-    "deploy_url": ""
+    "deploy_url": "https://todo-api-python-test.onrender.com"
   }
 ]
