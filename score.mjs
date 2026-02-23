@@ -381,7 +381,7 @@ const CHECKS = {
       if (!team.deploy_url) return { pass: false, detail: "No deploy_url in teams.json" };
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+        const timeout = setTimeout(() => controller.abort(), 30000);
         const res = await fetch(team.deploy_url, { signal: controller.signal });
         clearTimeout(timeout);
         if (!res.ok) return { pass: false, detail: `${team.deploy_url} → HTTP ${res.status}` };
