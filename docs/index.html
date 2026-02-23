@@ -101,6 +101,18 @@
       const data = await res.json();
       const bonusPossible = data.bonus_possible || 0;
 
+      // Load reviews if available
+      let reviews = {};
+      try {
+        const revRes = await fetch('reviews.json');
+        if (revRes.ok) {
+          const revData = await revRes.json();
+          for (const r of revData.teams || []) {
+            reviews[r.repo] = r;
+          }
+        }
+      } catch { /* no reviews yet */ }
+
       document.getElementById('subtitle').textContent =
         `${data.teams.length} équipes · ${data.total_possible} points${bonusPossible ? ` + ${bonusPossible} bonus` : ''}`;
 
@@ -146,6 +158,18 @@
 
         const bonusScore = t.bonus > 0 ? `<span class="score-bonus"> +${t.bonus}</span>` : '';
 
+        // Review scores
+        const review = reviews[t.repo];
+        const reviewBadge = review
+          ? `<span class="check bonus-pass" title="${review.summary || ''}">📝 Review ${review.total}/20</span>`
+          : '';
+        const reviewDetails = review
+          ? `<div class="detail-section" style="margin-top:12px">📝 Code Review (${review.total}/20)</div>
+             <div><span class="check ${review.code_quality?.score >= 6 ? 'pass' : 'fail'}">Code: ${review.code_quality?.score || 0}/10</span> — ${review.code_quality?.details || review.code_quality?.notes || ''}</div>
+             <div><span class="check ${review.documentation?.score >= 6 ? 'pass' : 'fail'}">Docs: ${review.documentation?.score || 0}/10</span> — ${review.documentation?.details || review.documentation?.notes || ''}</div>
+             ${review.summary ? `<div style="color:#8b949e;margin-top:4px;font-style:italic">${review.summary}</div>` : ''}`
+          : '';
+
         tbody.innerHTML += `
           <tr>
             <td class="rank">${t.rank <= 3 ? MEDALS[t.rank-1] : t.rank}</td>
@@ -156,7 +180,7 @@
             </td>
             <td class="score">${t.total}<span style="color:#8b949e;font-weight:normal">/${data.total_possible}</span>${bonusScore}</td>
             <td><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
-            <td class="checks">${checks}${bonusChecks ? '<br>' + bonusChecks : ''}</td>
+            <td class="checks">${checks}${bonusChecks ? '<br>' + bonusChecks : ''}${reviewBadge ? '<br>' + reviewBadge : ''}</td>
             <td><button class="details-btn" onclick="toggleDetail(this)">Détails</button></td>
           </tr>
           <tr class="detail-row">
@@ -164,6 +188,7 @@
               <div class="detail-section">Core</div>
               ${coreDetails}
               ${bonusDetails ? `<div class="detail-section" style="margin-top:12px">⭐ Bonus</div>${bonusDetails}` : ''}
+              ${reviewDetails}
             </td>
           </tr>`;
       });
