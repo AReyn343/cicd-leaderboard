@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-23T14:29:47.912Z",
+  "generated_at": "2026-02-23T14:50:24.473Z",
   "total_possible": 130,
   "teams": [
     {
@@ -8,8 +8,8 @@
         "akasam"
       ],
       "repo": "akasam/todo-api-python-test",
-      "deploy_url": "",
-      "total": 105,
+      "deploy_url": "https://todo-api-python-test.onrender.com",
+      "total": 115,
       "maxTotal": 130,
       "results": {
         "pipeline_exists": {
@@ -97,8 +97,8 @@
           "category": "intermediate"
         },
         "deployed": {
-          "pass": false,
-          "detail": "No deploy_url in teams.json",
+          "pass": true,
+          "detail": "https://todo-api-python-test.onrender.com → HTTP 200 ✅ (Todo API verified)",
           "points": 10,
           "label": "App deployed (HTTP 200)",
           "category": "intermediate"
