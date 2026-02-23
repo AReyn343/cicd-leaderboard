@@ -452,8 +452,8 @@ const CHECKS = {
     run: async (owner, repo, _team, ctx) => {
       for (const wf of ctx.workflows) {
         const lower = wf.content.toLowerCase();
-        const hasStaging = lower.includes("environment: staging") || lower.includes("environment:\n          name: staging");
-        const hasProd = lower.includes("environment: production") || lower.includes("environment:\n          name: production") || lower.includes("environment: prod");
+        const hasStaging = lower.includes("environment: staging") || /environment:\s*\n\s*name:\s*staging/.test(lower);
+        const hasProd = lower.includes("environment: production") || lower.includes("environment: prod") || /environment:\s*\n\s*name:\s*production/.test(lower) || /environment:\s*\n\s*name:\s*prod/.test(lower);
         if (hasStaging && hasProd) {
           return { pass: true, detail: `Staging + production environments in ${wf.path}` };
         }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-23T13:11:53.150Z",
+  "generated_at": "2026-02-23T14:17:21.711Z",
   "total_possible": 130,
   "teams": [
     {
@@ -9,7 +9,7 @@
       ],
       "repo": "akasam/todo-api-python-test",
       "deploy_url": "",
-      "total": 60,
+      "total": 105,
       "maxTotal": 130,
       "results": {
         "pipeline_exists": {
@@ -20,8 +20,8 @@
           "category": "fundamentals"
         },
         "pipeline_green": {
-          "pass": false,
-          "detail": "Last run: failure (#3)",
+          "pass": true,
+          "detail": "Last run: success (#4)",
           "points": 5,
           "label": "Pipeline green on main",
           "category": "fundamentals"
@@ -48,15 +48,15 @@
           "category": "fundamentals"
         },
         "tests_pass": {
-          "pass": false,
-          "detail": "Pipeline not green",
+          "pass": true,
+          "detail": "Job \"test\": success",
           "points": 5,
           "label": "Tests pass",
           "category": "fundamentals"
         },
         "coverage_70": {
-          "pass": false,
-          "detail": "Coverage in CI, pipeline red ❌",
+          "pass": true,
+          "detail": "Coverage in CI, pipeline green ✅",
           "points": 10,
           "label": "Coverage ≥ 70%",
           "category": "fundamentals"
@@ -83,8 +83,8 @@
           "category": "intermediate"
         },
         "ghcr_published": {
-          "pass": false,
-          "detail": "No container packages found on GHCR",
+          "pass": true,
+          "detail": "Package \"todo-api-python-test\" found for user",
           "points": 10,
           "label": "Image on GHCR",
           "category": "intermediate"
@@ -118,15 +118,15 @@
           "category": "advanced"
         },
         "multi_env": {
-          "pass": false,
-          "detail": "No multiple environments (need both staging + production)",
+          "pass": true,
+          "detail": "Staging + production environments in .github/workflows/ci.yml",
           "points": 10,
           "label": "Multiple environments",
           "category": "advanced"
         },
         "pipeline_fast": {
-          "pass": false,
-          "detail": "No successful runs",
+          "pass": true,
+          "detail": "Average: 1.3 min (last 1 runs)",
           "points": 5,
           "label": "Pipeline < 3 minutes",
           "category": "advanced"
