@@ -149,12 +149,34 @@ const CHECKS = {
     category: "fundamentals",
     label: "Pipeline green on main",
     run: async (owner, repo) => {
-      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=1`);
-      if (!runs?.workflow_runs?.length) return { pass: false, detail: "No runs found" };
-      const last = runs.workflow_runs[0];
+      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=10&event=push`);
+      if (!runs?.workflow_runs?.length) {
+        // Fallback: try without event filter
+        const allRuns = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=10`);
+        if (!allRuns?.workflow_runs?.length) return { pass: false, detail: "No runs found" };
+        // Filter out Dependabot/CodeQL/scheduled runs — keep CI/CD workflows
+        const ciRuns = allRuns.workflow_runs.filter((r) =>
+          !r.name.toLowerCase().includes("dependabot") &&
+          !r.name.toLowerCase().includes("codeql") &&
+          !r.name.toLowerCase().includes("update #") &&
+          r.status === "completed"
+        );
+        if (!ciRuns.length) return { pass: false, detail: "No CI runs found" };
+        const last = ciRuns[0];
+        return {
+          pass: last.conclusion === "success",
+          detail: `Last run: ${last.conclusion} (#${last.run_number} — ${last.name})`,
+        };
+      }
+      // With event=push, filter out non-CI workflows
+      const ciRuns = runs.workflow_runs.filter((r) =>
+        !r.name.toLowerCase().includes("codeql") &&
+        r.status === "completed"
+      );
+      const last = ciRuns.length ? ciRuns[0] : runs.workflow_runs[0];
       return {
         pass: last.conclusion === "success",
-        detail: `Last run: ${last.conclusion || last.status} (#${last.run_number})`,
+        detail: `Last run: ${last.conclusion} (#${last.run_number} — ${last.name})`,
       };
     },
   },
@@ -165,11 +187,19 @@ const CHECKS = {
     label: "Lint step in pipeline",
     run: async (owner, repo, _team, ctx) => {
       // Anti-cheat: must actually run a linter, not just mention the word
-      const realLinters = ["ruff", "flake8", "pylint", "eslint", "prettier", "black"];
+      const realLinters = ["ruff", "flake8", "pylint", "eslint", "prettier", "black", "biome"];
       for (const wf of ctx.workflows) {
         const result = stepIsReal(wf.content, realLinters);
         if (result.found) {
           return { pass: true, detail: `Real linter in ${wf.path} (${result.how})` };
+        }
+        // Also accept npm/yarn/pnpm run lint (delegates to package.json script)
+        const lower = wf.content.toLowerCase();
+        const npmLintPatterns = [/npm\s+run\s+lint/, /npx\s+.*lint/, /yarn\s+lint/, /pnpm\s+.*lint/];
+        for (const pat of npmLintPatterns) {
+          if (pat.test(lower)) {
+            return { pass: true, detail: `Lint via package script in ${wf.path}` };
+          }
         }
       }
       return { pass: false, detail: "No real linter execution found in workflows" };
@@ -417,8 +447,9 @@ const CHECKS = {
         "gitleaks/gitleaks-action", "gitleaks detect",
         "bandit -r", "bandit ",
         "pip-audit", "safety check",
-        "npm audit", "snyk test",
+        "npm audit", "snyk test", "snyk ",
         "github/codeql-action", "semgrep",
+        "sonarsource/sonarcloud-github-action", "sonarcloud",
       ];
       for (const wf of ctx.workflows) {
         const result = stepIsReal(wf.content, realTools);
