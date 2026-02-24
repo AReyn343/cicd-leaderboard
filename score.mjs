@@ -126,6 +126,29 @@ async function getWorkflows(owner, repo) {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: get last CI run (ignoring Dependabot, CodeQL, scheduled updates)
+// ---------------------------------------------------------------------------
+
+async function getLastCIRun(owner, repo) {
+  // Try push events first
+  const pushRuns = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=10&event=push`);
+  const filterCI = (runs) => (runs?.workflow_runs || []).filter((r) =>
+    r.status === "completed" &&
+    !r.name.toLowerCase().includes("dependabot") &&
+    !r.name.toLowerCase().includes("codeql") &&
+    !r.name.toLowerCase().includes("update #")
+  );
+
+  let ciRuns = filterCI(pushRuns);
+  if (ciRuns.length) return ciRuns[0];
+
+  // Fallback: all events
+  const allRuns = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=10`);
+  ciRuns = filterCI(allRuns);
+  return ciRuns.length ? ciRuns[0] : null;
+}
+
+// ---------------------------------------------------------------------------
 // Individual checks — each returns { pass: bool, detail: string }
 // ---------------------------------------------------------------------------
 
@@ -149,31 +172,8 @@ const CHECKS = {
     category: "fundamentals",
     label: "Pipeline green on main",
     run: async (owner, repo) => {
-      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=10&event=push`);
-      if (!runs?.workflow_runs?.length) {
-        // Fallback: try without event filter
-        const allRuns = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=10`);
-        if (!allRuns?.workflow_runs?.length) return { pass: false, detail: "No runs found" };
-        // Filter out Dependabot/CodeQL/scheduled runs — keep CI/CD workflows
-        const ciRuns = allRuns.workflow_runs.filter((r) =>
-          !r.name.toLowerCase().includes("dependabot") &&
-          !r.name.toLowerCase().includes("codeql") &&
-          !r.name.toLowerCase().includes("update #") &&
-          r.status === "completed"
-        );
-        if (!ciRuns.length) return { pass: false, detail: "No CI runs found" };
-        const last = ciRuns[0];
-        return {
-          pass: last.conclusion === "success",
-          detail: `Last run: ${last.conclusion} (#${last.run_number} — ${last.name})`,
-        };
-      }
-      // With event=push, filter out non-CI workflows
-      const ciRuns = runs.workflow_runs.filter((r) =>
-        !r.name.toLowerCase().includes("codeql") &&
-        r.status === "completed"
-      );
-      const last = ciRuns.length ? ciRuns[0] : runs.workflow_runs[0];
+      const last = await getLastCIRun(owner, repo);
+      if (!last) return { pass: false, detail: "No CI runs found" };
       return {
         pass: last.conclusion === "success",
         detail: `Last run: ${last.conclusion} (#${last.run_number} — ${last.name})`,
@@ -286,10 +286,9 @@ const CHECKS = {
     category: "fundamentals",
     label: "Tests pass",
     run: async (owner, repo) => {
-      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=1`);
-      if (!runs?.workflow_runs?.length) return { pass: false, detail: "No runs" };
-      const last = runs.workflow_runs[0];
-      if (last.conclusion !== "success") return { pass: false, detail: "Pipeline not green" };
+      const last = await getLastCIRun(owner, repo);
+      if (!last) return { pass: false, detail: "No CI runs" };
+      if (last.conclusion !== "success") return { pass: false, detail: `Pipeline not green (${last.name} #${last.run_number})` };
 
       const jobs = await gh(`/repos/${owner}/${repo}/actions/runs/${last.id}/jobs`);
       if (!jobs?.jobs) return { pass: false, detail: "Cannot read jobs" };
@@ -319,13 +318,13 @@ const CHECKS = {
 
       if (!hasCoverage) return { pass: false, detail: "No coverage step found in CI" };
 
-      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=1`);
-      if (!runs?.workflow_runs?.length) return { pass: false, detail: "No runs" };
-      const isGreen = runs.workflow_runs[0].conclusion === "success";
+      const last = await getLastCIRun(owner, repo);
+      if (!last) return { pass: false, detail: "No CI runs" };
+      const isGreen = last.conclusion === "success";
 
       return {
         pass: hasCoverage && isGreen,
-        detail: `Coverage in CI, pipeline ${isGreen ? "green ✅" : "red ❌"}`,
+        detail: `Coverage in CI, pipeline ${isGreen ? "green ✅" : `red ❌ (${last.name} #${last.run_number})`}`,
       };
     },
   },
