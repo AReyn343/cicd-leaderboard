@@ -773,7 +773,9 @@ const BONUS_CHECKS = {
 // ---------------------------------------------------------------------------
 
 async function scoreTeam(team) {
-  const [owner, repo] = team.repo.split("/");
+  // Clean repo name (remove trailing .git if present)
+  const cleanRepo = team.repo.replace(/\.git$/, "");
+  const [owner, repo] = cleanRepo.split("/");
   console.log(`\n🔍 Scoring ${team.team} (${team.repo})...`);
 
   // Pre-fetch workflows (shared across checks)
