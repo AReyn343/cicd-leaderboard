@@ -10,10 +10,11 @@
         "team": "Le Jardin"
     },
     {
-        "deploy_url": "",
+        "deploy_url": "https://todo-api-node-h7rm.onrender.com",
         "members": [
             "lucas-bourdon",
-            "adam-younsi"
+            "adam-younsi",
+            "lucas-butynski"
         ],
         "repo": "ayoun07/todo-api-node",
         "team": "Exemple"
