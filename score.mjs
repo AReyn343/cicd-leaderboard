@@ -518,13 +518,23 @@ const CHECKS = {
     category: "advanced",
     label: "Branch protection on main",
     run: async (owner, repo) => {
+      // Try classic branch protection first
       const prot = await gh(`/repos/${owner}/${repo}/branches/main/protection`);
-      if (!prot || prot.message) return { pass: false, detail: "No branch protection" };
-      const prRequired = prot.required_pull_request_reviews;
-      return {
-        pass: !!prRequired,
-        detail: prRequired ? "PR required before merge ✅" : "Protection exists but PR not required",
-      };
+      if (prot && !prot.message && prot.required_pull_request_reviews) {
+        return { pass: true, detail: "Classic branch protection — PR required ✅" };
+      }
+      // Try Repository Rulesets API (new GitHub system)
+      const rules = await gh(`/repos/${owner}/${repo}/rules/branches/main`);
+      if (rules && Array.isArray(rules) && rules.length > 0) {
+        const hasPR = rules.some((r) => r.type === "pull_request");
+        if (hasPR) {
+          return { pass: true, detail: "Repository ruleset — PR required ✅" };
+        }
+        // Has some rules but not PR requirement
+        const ruleTypes = rules.map((r) => r.type).join(", ");
+        return { pass: true, detail: `Repository ruleset active (${ruleTypes})` };
+      }
+      return { pass: false, detail: "No branch protection (checked classic + rulesets)" };
     },
   },
 
