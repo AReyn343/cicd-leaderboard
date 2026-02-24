@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-24T19:54:33.757Z",
+  "generated_at": "2026-02-24T20:38:16.118Z",
   "total_possible": 140,
   "bonus_possible": 40,
   "teams": [
@@ -227,11 +227,11 @@
       ],
       "repo": "LuaPanic/todo-api-node",
       "deploy_url": "https://todo-api.httpd.zip",
-      "total": 125,
+      "total": 115,
       "maxTotal": 140,
       "bonus": 30,
       "maxBonus": 40,
-      "grandTotal": 155,
+      "grandTotal": 145,
       "results": {
         "pipeline_exists": {
           "pass": true,
@@ -242,14 +242,14 @@
         },
         "pipeline_green": {
           "pass": true,
-          "detail": "Last run: success (#29 — CD)",
+          "detail": "Last run: success (#23 — Trivy)",
           "points": 5,
           "label": "Pipeline green on main",
           "category": "fundamentals"
         },
         "lint_pass": {
           "pass": true,
-          "detail": "Step \"Checkout\" in \"Build & Publish\" green ✅",
+          "detail": "Step \"Checkout\" in \"Vulnerability scan\" green ✅",
           "points": 5,
           "label": "Lint step in pipeline",
           "category": "fundamentals"
@@ -262,15 +262,15 @@
           "category": "fundamentals"
         },
         "tests_exist": {
-          "pass": true,
-          "detail": "2 real test file(s), run in CI — Step \"Generate artifact attestation\" in \"Build & Publish\" green ✅",
+          "pass": false,
+          "detail": "2 real test file(s) but not run in CI",
           "points": 10,
           "label": "Tests exist in pipeline",
           "category": "fundamentals"
         },
         "tests_pass": {
-          "pass": true,
-          "detail": "Step \"Generate artifact attestation\" in \"Build & Publish\" green ✅",
+          "pass": false,
+          "detail": "No test job/step found in last CI run",
           "points": 5,
           "label": "Tests pass",
           "category": "fundamentals"
@@ -290,8 +290,8 @@
           "category": "fundamentals"
         },
         "docker_builds": {
-          "pass": true,
-          "detail": "Step \"Log in to GitHub Container Registry\" in \"Build & Publish\" green ✅",
+          "pass": false,
+          "detail": "No green Docker build job/step found in last CI run",
           "points": 5,
           "label": "Docker build in CI",
           "category": "fundamentals"
@@ -311,8 +311,8 @@
           "category": "fundamentals"
         },
         "security_scan": {
-          "pass": false,
-          "detail": "No security scan job/step or check run found",
+          "pass": true,
+          "detail": "Job \"Vulnerability scan\" green ✅",
           "points": 10,
           "label": "Security scan in CI",
           "category": "intermediate"
@@ -347,7 +347,7 @@
         },
         "auto_deploy": {
           "pass": true,
-          "detail": "Job \"Build & Publish\" green ✅",
+          "detail": "GitHub deployment to \"production\" found (2026-02-24T20:26:34Z)",
           "points": 10,
           "label": "Auto-deploy on push to main",
           "category": "advanced"
@@ -361,7 +361,7 @@
         },
         "pipeline_fast": {
           "pass": true,
-          "detail": "Average: 1.9 min (last 10 runs)",
+          "detail": "Average: 1.4 min (last 10 runs)",
           "points": 5,
           "label": "Pipeline < 3 minutes",
           "category": "advanced"
@@ -398,7 +398,7 @@
         },
         "conventional_commits": {
           "pass": true,
-          "detail": "14/14 conventional (100%)",
+          "detail": "13/13 conventional (100%)",
           "points": 5,
           "label": "Conventional commits",
           "category": "bonus"
@@ -412,7 +412,7 @@
         },
         "health_endpoint": {
           "pass": true,
-          "detail": "/health → {\"status\":\"ok\",\"uptime\":2449.432818557}",
+          "detail": "/health → {\"status\":\"ok\",\"uptime\":601.07241074}",
           "points": 5,
           "label": "Health endpoint",
           "category": "bonus"
@@ -628,7 +628,7 @@
         },
         "health_endpoint": {
           "pass": true,
-          "detail": "/health → {\"status\":\"ok\",\"uptime\":903.507651967}",
+          "detail": "/health → {\"status\":\"ok\",\"uptime\":3539.518719786}",
           "points": 5,
           "label": "Health endpoint",
           "category": "bonus"
@@ -1058,7 +1058,7 @@
         },
         "health_endpoint": {
           "pass": true,
-          "detail": "/health → {\"status\":\"ok\",\"timestamp\":\"2026-02-24T19:54:33.497Z\"}",
+          "detail": "/health → {\"status\":\"ok\",\"timestamp\":\"2026-02-24T20:38:15.925Z\"}",
           "points": 5,
           "label": "Health endpoint",
           "category": "bonus"
