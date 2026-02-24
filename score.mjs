@@ -210,13 +210,20 @@ const CHECKS = {
     points: 5,
     category: "fundamentals",
     label: "No hardcoded secrets",
-    run: async (owner, repo) => {
-      const files = [
-        "main.py", "app.js", "app.py",
+    run: async (owner, repo, _team, ctx) => {
+      // Scan known files + any .py/.js/.ts from tree (excluding tests/node_modules)
+      const staticFiles = [
+        "main.py", "app.js", "app.py", "main.js", "server.js", "index.js",
         "database/database.py", "database/database.js",
         "routers/todo.py", "routes/todo.js",
         "config.py", "config.js", "settings.py",
+        "src/app.js", "src/main.js", "src/index.js", "src/server.js",
       ];
+      const treeFiles = (ctx.tree?.tree || [])
+        .filter((f) => (f.path.endsWith(".py") || f.path.endsWith(".js") || f.path.endsWith(".ts")) &&
+          !f.path.includes("node_modules") && !f.path.includes("test") && !f.path.includes(".github"))
+        .map((f) => f.path);
+      const files = [...new Set([...staticFiles, ...treeFiles])];
       const patterns = [
         /(?:SECRET_KEY|API_KEY|DB_PASSWORD|PASSWORD|TOKEN)\s*=\s*["'][^"']{6,}["']/i,
         /sk-proj-[a-zA-Z0-9]+/,
@@ -276,6 +283,11 @@ const CHECKS = {
         if (result.found) {
           return { pass: true, detail: `${realTests} real test file(s), run in CI (${result.how})` };
         }
+        // Also match npm test / npm run test inside docker run or other wrappers
+        const lower = wf.content.toLowerCase();
+        if (lower.includes("npm test") || lower.includes("npm run test") || lower.includes("pnpm test") || lower.includes("yarn test")) {
+          return { pass: true, detail: `${realTests} real test file(s), run in CI (package script)` };
+        }
       }
       return { pass: false, detail: `${realTests} real test file(s) but not run in CI` };
     },
@@ -314,6 +326,11 @@ const CHECKS = {
       for (const wf of ctx.workflows) {
         const result = stepIsReal(wf.content, covCommands);
         if (result.found) { hasCoverage = true; break; }
+        // Also match coverage via npm scripts or broader patterns
+        const lower = wf.content.toLowerCase();
+        if (lower.includes("--coverage") || lower.includes("test:coverage") || lower.includes("jest --coverage") || lower.includes("vitest run --coverage") || lower.includes("codecov")) {
+          hasCoverage = true; break;
+        }
       }
 
       if (!hasCoverage) return { pass: false, detail: "No coverage step found in CI" };
@@ -376,7 +393,7 @@ const CHECKS = {
         try {
           const url = team.deploy_url.replace(/\/+$/, "") + ep;
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 15000);
+          const timeout = setTimeout(() => controller.abort(), 30000);
           const res = await fetch(url, { signal: controller.signal });
           clearTimeout(timeout);
           if (res.ok) {
@@ -501,6 +518,7 @@ const CHECKS = {
       // Anti-cheat: must use a real quality tool action or command
       const realTools = [
         "sonarcloud-github-action", "SonarSource/sonarcloud",
+        "sonarqube-scan-action", "SonarSource/sonarqube-scan",
         "sonar-scanner", "sonar.projectKey",
         "codeclimate/action", "paambaati/codeclimate-action",
         "codecov/codecov-action",
@@ -538,10 +556,20 @@ const CHECKS = {
           body.includes("Enhanced") ||
           body.includes("Todo") ||
           body.includes("todo");
-        if (!isOurApp) {
-          return { pass: false, detail: `${team.deploy_url} → HTTP 200 but not our Todo API (wrong app?)` };
+        if (isOurApp) {
+          return { pass: true, detail: `${team.deploy_url} → HTTP ${res.status} ✅ (Todo API verified)` };
         }
-        return { pass: true, detail: `${team.deploy_url} → HTTP ${res.status} ✅ (Todo API verified)` };
+        // Fallback: check /todos endpoint (JSON APIs might not have "todo" on root)
+        try {
+          const todosRes = await fetch(team.deploy_url.replace(/\/+$/, "") + "/todos", { signal: AbortSignal.timeout(15000) });
+          if (todosRes.ok) {
+            const todosBody = await todosRes.text();
+            if (todosBody.startsWith("[") || todosBody.includes("todos")) {
+              return { pass: true, detail: `${team.deploy_url} → /todos endpoint works ✅` };
+            }
+          }
+        } catch { /* ignore */ }
+        return { pass: false, detail: `${team.deploy_url} → HTTP 200 but not our Todo API (wrong app?)` };
       } catch (e) {
         return { pass: false, detail: `${team.deploy_url} → ${e.message}` };
       }
@@ -588,15 +616,19 @@ const CHECKS = {
       ];
       for (const wf of ctx.workflows) {
         const lower = wf.content.toLowerCase();
-        // Must trigger on push to main
+        // Must trigger on push to main, or via workflow_run (chained workflow), or workflow_dispatch
         const triggersOnMain = (lower.includes("push") && lower.includes("main")) ||
-          lower.includes("branches: [main]") || lower.includes("branches: [ main ]") ||
-          lower.includes("branches:\n") ;
+          lower.includes("branches: [main") || lower.includes("branches: [ main") ||
+          lower.includes("workflow_run") || lower.includes("workflow_dispatch");
         if (!triggersOnMain) continue;
 
         const result = stepIsReal(wf.content, deployKeywords);
         if (result.found) {
           return { pass: true, detail: `Deploy on push to main: ${result.how} in ${wf.path}` };
+        }
+        // Also check for deploy-related patterns in the content broadly
+        if (lower.includes("deploy") && (lower.includes("curl") || lower.includes("docker compose") || lower.includes("vercel") || lower.includes("ssh"))) {
+          return { pass: true, detail: `Deploy workflow detected in ${wf.path}` };
         }
       }
       return { pass: false, detail: "No auto-deploy workflow found" };
@@ -637,7 +669,7 @@ const CHECKS = {
     category: "advanced",
     label: "Pipeline < 3 minutes",
     run: async (owner, repo) => {
-      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&status=success&per_page=3`);
+      const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&status=success&per_page=10&event=push`);
       if (!runs?.workflow_runs?.length) return { pass: false, detail: "No successful runs" };
       let totalMs = 0;
       let count = 0;
