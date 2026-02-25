@@ -1,116 +1,128 @@
 [
-    {
-        "deploy_url": "https://todo-api-node.vercel.app/",
-        "members": [
-            "Baptiste DANDE",
-            "Keryan CHAMPION",
-            "Nathan HUMEAU"
-        ],
-        "repo": "keryanchpn/todo-api-node",
-        "team": "West Coast Team"
-    },
-    {
-        "deploy_url": "https://todoapp.fabienlaurence.com/",
-        "members": [
-            "Fabien LAURENCE",
-            "Douri Mohamad Monif",
-            "Evoeke Rafiringa"
-        ],
-        "repo": "FabLrc/todo-api-node",
-        "team": "Le Jardin"
-    },
-    {
-        "deploy_url": "https://todo-api-node-h7rm.onrender.com",
-        "members": [
-            "lucas-bourdon",
-            "adam-younsi",
-            "lucas-butynski"
-        ],
-        "repo": "ayoun07/todo-api-node",
-        "team": "Exemple"
-    },
-    {
-        "deploy_url": "https://todo-api-node-y2tg.onrender.com/",
-        "members": [
-            "Visoth YOUK SIM",
-            "Amélie REYNAUD",
-            "Oussama DGHOUGHI"
-        ],
-        "repo": "AReyn343/todo-api-node",
-        "team": "NOBLE Team"
-    },
-    {
-        "deploy_url": "https://www.sqlinjection.wookiesrpeople2.dev/ ",
-        "members": [
-            "Mathieu Fercocq",
-            "Kenann Tobiansky"
-        ],
-        "repo": "WookiesRpeople2/todo-api-node",
-        "team": "sql_injection"
-    },
-    {
-        "deploy_url": "https://todo-api-node-phi.vercel.app/",
-        "members": [
-            "SIMSEK Lutfi",
-            "BALOUP Clément"
-        ],
-        "repo": "paspigui/todo-api-node",
-        "team": "La team"
-    },
-    {
-        "deploy_url": "https://todo-api.httpd.zip",
-        "members": [
-            "Alexandre Raynaud",
-            "Jules Vallet"
-        ],
-        "repo": "LuaPanic/todo-api-node",
-        "team": "TeamRedBox"
-    },
-    {
-        "deploy_url": "https://todo.lootopia.io",
-        "members": [
-            "Allan THIERY-DEMANGEON",
-            "Hugo WEHRLE",
-            "Tristan RENARD"
-        ],
-        "repo": "lootopia-les-3-dev/todo-api-node",
-        "team": "HAT"
-    },
-    {
-        "deploy_url": "https://todo-api-node-bnce.onrender.com/",
-        "members": [
-            "Hugo Zins",
-            "Antoine Ciric",
-            "Iliès Izikki"
-        ],
-        "repo": "un-mec-paumer/todo-api-node",
-        "team": "hello world"
-    },
-    {
-        "deploy_url": "https://ci-cd-425f.onrender.com",
-        "members": [
-            "Mehdi BELKATEB",
-            "Lesly AIKPE"
-        ],
-        "repo": "Reemark/CI-CD",
-        "team": "Team-locker"
-    },
-    {
-        "deploy_url": "https://todo-api-node-six.vercel.app/",
-        "members": [
-            "Julian CHRISTMANN",
-            "Bilal MOHAMMAD"
-        ],
-        "repo": "Christmann-Julian/todo-api-node",
-        "team": "Team BJ"
-    },
-    {
-        "deploy_url": "https://todo-api-node-production.up.railway.app/",
-        "members": [
-            "Elise Chaldjian",
-            "Jeremy Sananikone"
-        ],
-        "repo": "Anothays/todo-api-node",
-        "team": "?"
-    }
+  {
+    "team": "West Coast Team",
+    "repo": "keryanchpn/todo-api-node",
+    "members": [
+      "Baptiste DANDE",
+      "Keryan CHAMPION",
+      "Nathan HUMEAU"
+    ],
+    "prod_url": "https://todo-api-node.vercel.app/",
+    "staging_url": ""
+  },
+  {
+    "team": "Le Jardin",
+    "repo": "FabLrc/todo-api-node",
+    "members": [
+      "Fabien LAURENCE",
+      "Douri Mohamad Monif",
+      "Evoeke Rafiringa"
+    ],
+    "prod_url": "https://todoapp.fabienlaurence.com/",
+    "staging_url": ""
+  },
+  {
+    "team": "Exemple",
+    "repo": "ayoun07/todo-api-node",
+    "members": [
+      "lucas-bourdon",
+      "adam-younsi",
+      "lucas-butynski"
+    ],
+    "prod_url": "https://todo-api-node-h7rm.onrender.com",
+    "staging_url": ""
+  },
+  {
+    "team": "NOBLE Team",
+    "repo": "AReyn343/todo-api-node",
+    "members": [
+      "Visoth YOUK SIM",
+      "Amélie REYNAUD",
+      "Oussama DGHOUGHI"
+    ],
+    "prod_url": "https://todo-api-node-y2tg.onrender.com/",
+    "staging_url": ""
+  },
+  {
+    "team": "sql_injection",
+    "repo": "WookiesRpeople2/todo-api-node",
+    "members": [
+      "Mathieu Fercocq",
+      "Kenann Tobiansky"
+    ],
+    "prod_url": "https://www.sqlinjection.wookiesrpeople2.dev/ ",
+    "staging_url": ""
+  },
+  {
+    "team": "La team",
+    "repo": "paspigui/todo-api-node",
+    "members": [
+      "SIMSEK Lutfi",
+      "BALOUP Clément"
+    ],
+    "prod_url": "https://todo-api-node-phi.vercel.app/",
+    "staging_url": ""
+  },
+  {
+    "team": "TeamRedBox",
+    "repo": "LuaPanic/todo-api-node",
+    "members": [
+      "Alexandre Raynaud",
+      "Jules Vallet"
+    ],
+    "prod_url": "https://todo-api.httpd.zip",
+    "staging_url": ""
+  },
+  {
+    "team": "HAT",
+    "repo": "lootopia-les-3-dev/todo-api-node",
+    "members": [
+      "Allan THIERY-DEMANGEON",
+      "Hugo WEHRLE",
+      "Tristan RENARD"
+    ],
+    "prod_url": "https://todo.lootopia.io",
+    "staging_url": ""
+  },
+  {
+    "team": "hello world",
+    "repo": "un-mec-paumer/todo-api-node",
+    "members": [
+      "Hugo Zins",
+      "Antoine Ciric",
+      "Iliès Izikki"
+    ],
+    "prod_url": "https://todo-api-node-bnce.onrender.com/",
+    "staging_url": ""
+  },
+  {
+    "team": "Team-locker",
+    "repo": "Reemark/CI-CD",
+    "members": [
+      "Mehdi BELKATEB",
+      "Lesly AIKPE"
+    ],
+    "prod_url": "https://ci-cd-425f.onrender.com",
+    "staging_url": ""
+  },
+  {
+    "team": "Team BJ",
+    "repo": "Christmann-Julian/todo-api-node",
+    "members": [
+      "Julian CHRISTMANN",
+      "Bilal MOHAMMAD"
+    ],
+    "prod_url": "https://todo-api-node-six.vercel.app/",
+    "staging_url": ""
+  },
+  {
+    "team": "?",
+    "repo": "Anothays/todo-api-node",
+    "members": [
+      "Elise Chaldjian",
+      "Jeremy Sananikone"
+    ],
+    "prod_url": "https://todo-api-node-production.up.railway.app/",
+    "staging_url": ""
+  }
 ]

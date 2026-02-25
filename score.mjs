@@ -449,11 +449,11 @@ const CHECKS = {
     category: "fundamentals",
     label: "API documentation (Swagger)",
     run: async (_owner, _repo, team) => {
-      if (!team.deploy_url) return { pass: false, detail: "No deploy_url — cannot check Swagger" };
+      if (!team.prod_url) return { pass: false, detail: "No prod_url — cannot check Swagger" };
       const endpoints = ["/docs", "/api-docs", "/swagger", "/api/docs"];
       for (const ep of endpoints) {
         try {
-          const url = team.deploy_url.replace(/\/+$/, "") + ep;
+          const url = team.prod_url.replace(/\/+$/, "") + ep;
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 30000);
           const res = await fetch(url, { signal: controller.signal });
@@ -602,13 +602,13 @@ const CHECKS = {
     category: "intermediate",
     label: "App deployed (HTTP 200)",
     run: async (_owner, _repo, team) => {
-      if (!team.deploy_url) return { pass: false, detail: "No deploy_url in teams.json" };
+      if (!team.prod_url) return { pass: false, detail: "No prod_url in teams.json" };
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 30000);
-        const res = await fetch(team.deploy_url, { signal: controller.signal });
+        const res = await fetch(team.prod_url, { signal: controller.signal });
         clearTimeout(timeout);
-        if (!res.ok) return { pass: false, detail: `${team.deploy_url} → HTTP ${res.status}` };
+        if (!res.ok) return { pass: false, detail: `${team.prod_url} → HTTP ${res.status}` };
 
         const body = await res.text();
         const isOurApp =
@@ -616,20 +616,20 @@ const CHECKS = {
           body.includes("Todo") ||
           body.includes("todo");
         if (isOurApp) {
-          return { pass: true, detail: `${team.deploy_url} → HTTP ${res.status} ✅ (Todo API verified)` };
+          return { pass: true, detail: `${team.prod_url} → HTTP ${res.status} ✅ (Todo API verified)` };
         }
         try {
-          const todosRes = await fetch(team.deploy_url.replace(/\/+$/, "") + "/todos", { signal: AbortSignal.timeout(15000) });
+          const todosRes = await fetch(team.prod_url.replace(/\/+$/, "") + "/todos", { signal: AbortSignal.timeout(15000) });
           if (todosRes.ok) {
             const todosBody = await todosRes.text();
             if (todosBody.startsWith("[") || todosBody.includes("todos")) {
-              return { pass: true, detail: `${team.deploy_url} → /todos endpoint works ✅` };
+              return { pass: true, detail: `${team.prod_url} → /todos endpoint works ✅` };
             }
           }
         } catch { /* ignore */ }
-        return { pass: false, detail: `${team.deploy_url} → HTTP 200 but not our Todo API (wrong app?)` };
+        return { pass: false, detail: `${team.prod_url} → HTTP 200 but not our Todo API (wrong app?)` };
       } catch (e) {
-        return { pass: false, detail: `${team.deploy_url} → ${e.message}` };
+        return { pass: false, detail: `${team.prod_url} → ${e.message}` };
       }
     },
   },
@@ -685,23 +685,54 @@ const CHECKS = {
     points: 10,
     category: "advanced",
     label: "Multiple environments",
-    run: async (owner, repo, _team, ctx) => {
-      // PRIMARY: Check GitHub Environments API
+    run: async (owner, repo, team, ctx) => {
+      // Step 1: Check GitHub Environments API (structural)
+      let hasGHEnvs = false;
+      let envDetail = "";
       if (ctx.environments && Array.isArray(ctx.environments) && ctx.environments.length >= 2) {
         const envNames = ctx.environments.map((e) => e.name.toLowerCase());
         const hasStaging = envNames.some((n) => ["staging", "dev", "development", "preview", "qa", "test"].includes(n));
         const hasProd = envNames.some((n) => ["production", "prod", "live"].includes(n));
         if (hasStaging && hasProd) {
-          const names = ctx.environments.map((e) => e.name).join(", ");
-          return { pass: true, detail: `GitHub environments: ${names} ✅` };
-        }
-        if (ctx.environments.length >= 2) {
-          const names = ctx.environments.map((e) => e.name).join(", ");
-          return { pass: true, detail: `${ctx.environments.length} GitHub environments: ${names} ✅` };
+          hasGHEnvs = true;
+          envDetail = ctx.environments.map((e) => e.name).join(", ");
+        } else if (ctx.environments.length >= 2) {
+          hasGHEnvs = true;
+          envDetail = ctx.environments.map((e) => e.name).join(", ");
         }
       }
 
-      // FALLBACK: check job names for deploy-staging/deploy-production patterns in lastRunJobs
+      // Step 2: Check staging_url is live (if provided)
+      if (team.staging_url && team.prod_url) {
+        // URLs must be different
+        const stagingNorm = team.staging_url.replace(/\/+$/, "").toLowerCase();
+        const prodNorm = team.prod_url.replace(/\/+$/, "").toLowerCase();
+        if (stagingNorm === prodNorm) {
+          return { pass: false, detail: "staging_url and prod_url are identical" };
+        }
+        try {
+          const controller = new AbortController();
+          setTimeout(() => controller.abort(), 15000);
+          const res = await fetch(team.staging_url, { signal: controller.signal });
+          if (res.ok) {
+            const envStr = hasGHEnvs ? ` (envs: ${envDetail})` : "";
+            return { pass: true, detail: `Staging ${team.staging_url} → HTTP ${res.status} ✅ + Prod live${envStr}` };
+          }
+          return { pass: false, detail: `Staging ${team.staging_url} → HTTP ${res.status}` };
+        } catch (e) {
+          return { pass: false, detail: `Staging ${team.staging_url} → ${e.message}` };
+        }
+      }
+
+      // Step 3: No staging_url yet — check GitHub Environments as fallback
+      if (hasGHEnvs) {
+        if (!team.staging_url) {
+          return { pass: false, detail: `GitHub environments: ${envDetail} — but no staging_url in teams.json (add it via PR!)` };
+        }
+        return { pass: true, detail: `GitHub environments: ${envDetail} ✅` };
+      }
+
+      // Step 4: Fallback — check job names
       if (ctx.lastRunJobs) {
         let hasStaging = false;
         let hasProd = false;
@@ -719,11 +750,11 @@ const CHECKS = {
           }
         }
         if (hasStaging && hasProd) {
-          return { pass: true, detail: `Multi-env jobs: "${stagingJob}" + "${prodJob}"` };
+          return { pass: false, detail: `Multi-env jobs: "${stagingJob}" + "${prodJob}" — but no staging_url in teams.json (add it via PR!)` };
         }
       }
 
-      return { pass: false, detail: "No multiple environments (need both staging + production)" };
+      return { pass: false, detail: "No multiple environments (need both staging + production URLs)" };
     },
   },
 
@@ -1089,8 +1120,8 @@ const BONUS_CHECKS = {
     category: "bonus",
     label: "Health endpoint",
     run: async (_owner, _repo, team) => {
-      if (!team.deploy_url) return { pass: false, detail: "No deploy URL" };
-      const base = team.deploy_url.replace(/\/+$/, "");
+      if (!team.prod_url) return { pass: false, detail: "No deploy URL" };
+      const base = team.prod_url.replace(/\/+$/, "");
       for (const path of ["/health", "/healthz", "/api/health"]) {
         try {
           const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(10000) });
@@ -1337,7 +1368,7 @@ async function scoreTeam(team) {
   }
 
   return {
-    team: team.team, members: team.members, repo: team.repo, deploy_url: team.deploy_url,
+    team: team.team, members: team.members, repo: team.repo, prod_url: team.prod_url, staging_url: team.staging_url,
     total, maxTotal, expert, maxExpert, bonus, maxBonus,
     grandTotal: total + expert + bonus,
     results, expertResults, bonusResults,
