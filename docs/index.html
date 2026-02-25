@@ -228,7 +228,7 @@
             </td>
             <td class="score">${t.total}<span style="color:#8b949e;font-weight:normal">/${data.total_possible}</span>${bonusScore}</td>
             <td><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
-            <td class="checks">${checks}${expertChecks ? '<br>' + expertChecks : ''}${bonusChecks ? '<br>' + bonusChecks : ''}${reviewBadge ? '<br>' + reviewBadge : ''}</td>
+            <td class="checks">${checks}<br>${expertChecks}<br>${bonusChecks}<br>${reviewBadge}</td>
             <td><button class="details-btn" onclick="toggleDetail(this)">Détails</button></td>
           </tr>
           <tr class="detail-row">
