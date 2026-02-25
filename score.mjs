@@ -772,6 +772,36 @@ const CHECKS = {
 };
 
 // ---------------------------------------------------------------------------
+// EXPERT checks
+// ---------------------------------------------------------------------------
+
+const EXPERT_CHECKS = {
+  ci_notifications: {
+    points: 5,
+    category: "expert",
+    label: "CI notifications (Discord/Slack)",
+    run: async (owner, repo, _team, ctx) => {
+      // Check for notification job/step in last run
+      const result = findGreenStep(ctx, ["notify", "notification", "discord", "slack", "webhook", "alert"]);
+      if (result.found) {
+        return { pass: true, detail: result.detail };
+      }
+      // Also check workflow YAML for webhook URLs or notification actions
+      for (const wf of ctx.workflows) {
+        const lower = wf.content.toLowerCase();
+        if (lower.includes("discord-webhook") || lower.includes("slack-webhook") ||
+            lower.includes("slackapi/") || lower.includes("discord_webhook") ||
+            lower.includes("8398a7/action-slack") || lower.includes("rtcamp/action-slack") ||
+            lower.includes("rjstone/discord-webhook")) {
+          return { pass: true, detail: `Notification action in ${wf.path}` };
+        }
+      }
+      return { pass: false, detail: "No CI notification job/step found" };
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
 // BONUS checks
 // ---------------------------------------------------------------------------
 
@@ -1017,6 +1047,27 @@ async function scoreTeam(team) {
     }
   }
 
+  // Expert checks
+  let expert = 0;
+  let maxExpert = 0;
+  const expertResults = {};
+
+  console.log(`  --- Expert ---`);
+  for (const [key, check] of Object.entries(EXPERT_CHECKS)) {
+    try {
+      const result = await check.run(owner, repo, team, ctx);
+      expertResults[key] = { ...result, points: check.points, label: check.label, category: check.category };
+      if (result.pass) expert += check.points;
+      maxExpert += check.points;
+      const icon = result.pass ? "🔴" : "○";
+      console.log(`  ${icon} ${check.label} (${result.pass ? check.points : 0}/${check.points}) — ${result.detail}`);
+    } catch (e) {
+      expertResults[key] = { pass: false, points: check.points, label: check.label, category: check.category, detail: `Error: ${e.message}` };
+      maxExpert += check.points;
+      console.log(`  ⚠️  ${check.label} — Error: ${e.message}`);
+    }
+  }
+
   // Bonus checks
   let bonus = 0;
   let maxBonus = 0;
@@ -1040,8 +1091,9 @@ async function scoreTeam(team) {
 
   return {
     team: team.team, members: team.members, repo: team.repo, deploy_url: team.deploy_url,
-    total, maxTotal, bonus, maxBonus, grandTotal: total + bonus,
-    results, bonusResults,
+    total, maxTotal, expert, maxExpert, bonus, maxBonus,
+    grandTotal: total + expert + bonus,
+    results, expertResults, bonusResults,
   };
 }
 
@@ -1059,6 +1111,7 @@ async function main() {
   const output = {
     generated_at: new Date().toISOString(),
     total_possible: Object.values(CHECKS).reduce((s, c) => s + c.points, 0),
+    expert_possible: Object.values(EXPERT_CHECKS).reduce((s, c) => s + c.points, 0),
     bonus_possible: Object.values(BONUS_CHECKS).reduce((s, c) => s + c.points, 0),
     teams: scores,
   };
@@ -1068,8 +1121,8 @@ async function main() {
   console.log(`\n📊 Scores written to docs/scores.json`);
   console.log(`\n🏆 Leaderboard:`);
   for (const s of scores) {
-    const bonusStr = s.bonus > 0 ? ` (+${s.bonus} bonus)` : "";
-    console.log(`  #${s.rank} ${s.team} — ${s.total}/${s.maxTotal} pts${bonusStr}`);
+    const extraStr = (s.expert > 0 || s.bonus > 0) ? ` (+${s.expert + s.bonus} extra)` : "";
+    console.log(`  #${s.rank} ${s.team} — ${s.total}/${s.maxTotal} pts${extraStr}`);
   }
 }
 
