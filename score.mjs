@@ -124,7 +124,7 @@ async function getLastCIRun(owner, repo) {
 // ---------------------------------------------------------------------------
 
 function findGreenStep(ctx, keywords) {
-  if (!ctx.lastRun || ctx.lastRun.conclusion !== "success") {
+  if (!ctx.lastRun) {
     return { found: false, run: ctx.lastRun };
   }
   if (!ctx.lastRunJobs || ctx.lastRunJobs.length === 0) {
