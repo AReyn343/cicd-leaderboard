@@ -1615,11 +1615,51 @@ async function scoreTeam(team) {
     }
   }
 
+  // --- Tiebreaker data ---
+  let reviewScore = 0;
+  let avgPipelineDuration = null;
+  let commitCount = null;
+  let firstGreenDate = null;
+
+  try {
+    const reviewsRaw = readFileSync("docs/reviews.json", "utf-8");
+    const reviews = JSON.parse(reviewsRaw);
+    const rev = reviews.find((r) => r.repo === team.repo);
+    if (rev) reviewScore = rev.total || 0;
+  } catch { /* no reviews yet */ }
+
+  try {
+    const runs = await gh(`/repos/${owner}/${repo}/actions/runs?branch=main&per_page=20&status=completed`);
+    const ciRuns = (runs?.workflow_runs || []).filter((r) => r.conclusion === "success");
+    if (ciRuns.length) {
+      // Avg duration of successful runs (in seconds)
+      const durations = ciRuns.map((r) => (new Date(r.updated_at) - new Date(r.run_started_at)) / 1000).filter((d) => d > 0);
+      if (durations.length) avgPipelineDuration = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length);
+      // First green run date
+      firstGreenDate = ciRuns[ciRuns.length - 1].created_at;
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const res = await ghFetch(`/repos/${owner}/${repo}/commits?sha=main&per_page=1`);
+    const link = res.headers.get("link") || "";
+    const m = link.match(/page=(\d+)>; rel="last"/);
+    commitCount = m ? parseInt(m[1], 10) : null;
+    if (!commitCount && res.ok) {
+      const data = await res.json();
+      commitCount = Array.isArray(data) ? data.length : null;
+    }
+  } catch { /* ignore */ }
+
+  console.log(`  --- Tiebreakers ---`);
+  console.log(`  📝 Review: ${reviewScore}/20 | ⏱️ Avg pipeline: ${avgPipelineDuration ? avgPipelineDuration + 's' : 'N/A'} | 📦 Commits: ${commitCount ?? 'N/A'} | 🟢 First green: ${firstGreenDate || 'N/A'}`);
+
   return {
     team: team.team, members: team.members, repo: team.repo, prod_url: team.prod_url, staging_url: team.staging_url,
     total, maxTotal, expert, maxExpert, bonus, maxBonus,
     grandTotal: total + expert + bonus,
     results, expertResults, bonusResults,
+    tiebreakers: { reviewScore, avgPipelineDuration, commitCount, firstGreenDate },
   };
 }
 
@@ -1632,7 +1672,22 @@ async function main() {
     scores.push(await scoreTeam(team));
   }
 
-  scores.sort((a, b) => b.grandTotal - a.grandTotal);
+  scores.sort((a, b) => {
+    // 1. Grand total (higher is better)
+    if (b.grandTotal !== a.grandTotal) return b.grandTotal - a.grandTotal;
+    // 2. Review score (higher is better)
+    const ra = a.tiebreakers?.reviewScore || 0, rb = b.tiebreakers?.reviewScore || 0;
+    if (rb !== ra) return rb - ra;
+    // 3. Avg pipeline duration (lower is better)
+    const da = a.tiebreakers?.avgPipelineDuration ?? Infinity, db = b.tiebreakers?.avgPipelineDuration ?? Infinity;
+    if (da !== db) return da - db;
+    // 4. Commit count (lower is better — efficiency)
+    const ca = a.tiebreakers?.commitCount ?? Infinity, cb = b.tiebreakers?.commitCount ?? Infinity;
+    if (ca !== cb) return ca - cb;
+    // 5. First green date (earlier is better)
+    const fa = a.tiebreakers?.firstGreenDate || "9999", fb = b.tiebreakers?.firstGreenDate || "9999";
+    return fa.localeCompare(fb);
+  });
   scores.forEach((s, i) => (s.rank = i + 1));
 
   const output = {
