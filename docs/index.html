@@ -152,8 +152,7 @@
             <div class="podium-card ${PODIUM_CLASSES[i]}">
               <div class="podium-rank">${MEDALS[i]}</div>
               <div class="podium-name">${t.team}</div>
-              <div class="podium-score">${t.total} pts</div>
-              ${bonusStr}
+              <div class="podium-score">${t.grandTotal} pts</div>
               <div class="team-members">${t.members.join(', ')}</div>
             </div>
             <div class="podium-base ${slotClasses[i]}"></div>
@@ -226,8 +225,8 @@
               <div class="team-members">${t.members.join(', ')}</div>
               ${t.prod_url ? `<a class="deploy-link" href="${t.prod_url}" target="_blank">🌐 ${t.prod_url}</a>` : ''}
             </td>
-            <td class="score">${t.total}<span style="color:#8b949e;font-weight:normal">/${data.total_possible}</span>${bonusScore}</td>
-            <td><div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div></td>
+            <td class="score">${t.grandTotal}<span style="color:#8b949e;font-weight:normal"> pts</span></td>
+            <td><div class="bar"><div class="bar-fill" style="width:${Math.round((t.grandTotal / (data.total_possible + (data.expert_possible||0) + (data.bonus_possible||0))) * 100)}%"></div></div></td>
             <td class="checks">
               <div>${checks}</div>
               <div>${expertChecks}</div>
